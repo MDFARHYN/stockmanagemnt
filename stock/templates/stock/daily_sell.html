@@ -1,0 +1,691 @@
+{% load static %}
+{% load stock_tags %}
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if editing_sale %}বিক্রয় সম্পাদনা{% else %}দৈনিক বিক্রয়{% endif %} — Daily Stock</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=Noto+Sans+Bengali:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'stock/css/dashboard.css' %}">
+</head>
+<body class="sm-page sm-page--sale-entry">
+  <div class="sm-wrap sm-wrap--sale-entry">
+    <header class="sm-top">
+      <div class="sm-top-intro">
+        <h1>{% if editing_sale %}বিক্রয় সম্পাদনা{% else %}দৈনিক বিক্রয়{% endif %}</h1>
+        <p>{% if editing_sale %}ক্রেতার তথ্য বদলান; বাকি টাকার ওপর নতুন পরিশোধ জমাতে টাকা ও সময় দিন। ইতিমধ্যে বিক্রি পণ্যের লাইন এখানে সম্পাদনা করা যাবে না।{% else %}উপরে ক্রেতার তথ্য, নিচের ফর্মে এক বা একাধিক পণ্য লাইন ও পরিশোধ দিন। «আরও লাইন» দিয়ে আরও পণ্য যোগ করুন। বাকি স্বয়ংক্রিয় হিসাব হবে।{% endif %}</p>
+      </div>
+      <nav class="sm-nav" aria-label="পেজ নেভিগেশন">
+        <a href="{% url 'stock:dashboard' %}">স্টক</a>
+        <a href="{% url 'user_authentication:my_account' %}">আমার অ্যাকাউন্ট</a>
+      </nav>
+    </header>
+
+    {% if messages %}
+      <div class="sm-messages">
+        {% for message in messages %}
+          <div class="sm-msg{% if message.tags %} {{ message.tags }}{% endif %}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="sm-main-layout sale-entry-layout">
+      <section class="sm-card sale-entry-card" aria-labelledby="sell-form-title">
+        {% if editing_sale %}
+          <div class="sm-card-header">
+            <span class="sm-badge sm-badge--edit">সম্পাদনা</span>
+            <h2 id="sell-form-title">বিক্রয় রেকর্ড সম্পাদনা</h2>
+          </div>
+
+          <div class="sale-edit-summary sale-edit-summary--product">
+            <p class="sale-edit-summary-line"><strong>পণ্য লাইন:</strong></p>
+            <ul class="sale-edit-lines-list">
+              {% for ln in editing_sale.lines.all %}
+              <li>{{ ln.product.name }} — {{ ln.quantity }} × {{ ln.unit_price|floatformat:0 }} ৳ = {{ ln.line_total|floatformat:0 }} ৳</li>
+              {% empty %}
+              <li>কোনো লাইন নেই।</li>
+              {% endfor %}
+            </ul>
+          </div>
+
+          <div class="sale-edit-overview" aria-label="বিক্রয় ও টাকার সারাংশ">
+            <h3 class="sale-edit-overview-title">টাকার পুরো হিসাব</h3>
+            <div class="sale-edit-overview-grid">
+              <div class="sale-edit-stat">
+                <span class="sale-edit-stat-label">মোট বিল</span>
+                <span class="sale-edit-stat-value">{{ editing_sale.line_total|floatformat:0 }} ৳</span>
+              </div>
+              <div class="sale-edit-stat sale-edit-stat--paid">
+                <span class="sale-edit-stat-label">মোট পরিশোধ</span>
+                <span class="sale-edit-stat-value">{{ editing_sale.amount_paid|floatformat:0 }} ৳</span>
+              </div>
+              <div class="sale-edit-stat sale-edit-stat--due">
+                <span class="sale-edit-stat-label">বাকি</span>
+                <span class="sale-edit-stat-value">{{ editing_sale.amount_due|floatformat:0 }} ৳</span>
+              </div>
+              <div class="sale-edit-stat sale-edit-stat--when">
+                <span class="sale-edit-stat-label">বিক্রয়ের সময়</span>
+                <span class="sale-edit-stat-meta">{{ editing_sale.sold_at|date:"d M Y, H:i" }}</span>
+              </div>
+            </div>
+          </div>
+
+          <form method="post" novalidate action="{% url 'stock:daily_sell' %}" id="daily-sell-edit-form" class="sale-entry-form">
+            {% csrf_token %}
+            <input type="hidden" name="sale_id" value="{{ editing_sale.pk }}">
+            <input type="hidden" name="_sales_page" value="{{ sales_page.number }}">
+            {% if editing_sale.payment_entries.exists %}
+            <div class="sale-payment-log-edit-wrap{% if request.POST.enable_payment_edit %} sale-payment-log--editable{% endif %}" id="sale-payment-log-edit-wrap">
+              <div class="sale-payment-log-toolbar">
+                <label class="sale-paylog-toggle-label">
+                  <input type="checkbox" name="enable_payment_edit" id="sale-edit-paylog-toggle" value="on"{% if request.POST.enable_payment_edit %} checked{% endif %}>
+                  <span>পুরোনো জমার টাকা ও সময় সম্পাদনা করুন</span>
+                </label>
+                <p class="sale-payment-log-toolbar-hint">অটোমেটিক শুধু দেখাবে। ভুল টাইপ হয়ে থাকলে টিক দিয়ে ঠিক করুন। আপডেট চাপলে মোট পরিশোধ ও বাকি নতুন করে গণনা হবে।</p>
+              </div>
+              <h3 class="sale-payment-log-title">কখন কত টাকা জমা হয়েছে</h3>
+              <p class="sale-payment-log-sub">প্রতিটি সারির সময় ও টাকা।</p>
+              <table class="sale-payment-log sale-payment-log--dual sale-payment-log--with-note">
+                <thead>
+                  <tr>
+                    <th scope="col">জমার সময়</th>
+                    <th scope="col" class="sm-num">টাকা</th>
+                    <th scope="col">মন্তব্য</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for p in editing_sale.payment_entries.all %}
+                  <tr>
+                    <td class="sale-payment-log-time">
+                      <span class="sale-pay-view">{{ p.paid_at|date:"d M Y, H:i" }}</span>
+                      <span class="sale-pay-edit"><input type="datetime-local" name="pay_at_{{ p.pk }}" class="sm-input sale-payment-inline-input" autocomplete="off" value="{{ p.paid_at|date:'Y-m-d' }}T{{ p.paid_at|time:'H:i' }}"></span>
+                    </td>
+                    <td class="sm-num sale-payment-amt-cell">
+                      <span class="sale-pay-view">{{ p.amount|floatformat:0 }}</span>
+                      <span class="sale-pay-edit"><input type="number" name="pay_amt_{{ p.pk }}" class="sm-input sale-payment-inline-input" step="1" min="0" inputmode="numeric" value="{{ p.amount }}"></span>
+                    </td>
+                    <td class="sale-payment-note-cell">
+                      <span class="sale-pay-view sale-pay-note-view">{% if p.note %}{{ p.note }}{% else %}—{% endif %}</span>
+                      <span class="sale-pay-edit"><textarea name="pay_note_{{ p.pk }}" class="sm-input sm-textarea sale-payment-note-input" rows="2" maxlength="2000" placeholder="মন্তব্য">{{ p.note }}</textarea></span>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% else %}
+            <p class="sale-payment-empty sale-payment-empty--in-form">এখনও কোনো জমার রেকর্ড লাইন নেই — শুধু মোট পরিশোধ সংরক্ষিত আছে। নতুন জমা নিচে যোগ করুন।</p>
+            {% endif %}
+
+            <div class="sale-section sale-section--customer sale-customer-above-form">
+              <h3 class="sale-section-title">ক্রেতার তথ্য</h3>
+              <div class="sm-field sale-entry-field">
+                {{ form.customer_name.label_tag }}
+                {% if form.customer_name.errors %}<ul class="errorlist">{% for e in form.customer_name.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                {{ form.customer_name }}
+              </div>
+              <div class="sm-field sale-entry-field">
+                {{ form.phone.label_tag }}
+                {% if form.phone.errors %}<ul class="errorlist">{% for e in form.phone.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                {{ form.phone }}
+              </div>
+              <div class="sm-field sale-entry-field">
+                {{ form.address.label_tag }}
+                {% if form.address.errors %}<ul class="errorlist">{% for e in form.address.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                {{ form.address }}
+              </div>
+            </div>
+
+            <div class="sale-section sale-section--payment sale-section--money sale-edit-add-pay">
+              <h3 class="sale-section-title sale-section-title--money">নতুন পরিশোধ জমা (ঐচ্ছিক)</h3>
+              <p class="sale-edit-due-hint">
+                বর্তমান বাকি <strong>{{ editing_sale.amount_due|floatformat:0 }}</strong> ৳।
+                {% if editing_sale.amount_due %}
+                নতুন টাকা পেলে নিচে লিখুন (সর্বোচ্চ বাকির সমান)।
+                {% else %}
+                সম্পূর্ণ পরিশোধ হয়েছে — নতুন জমা দেওয়ার দরকার নেই; শুধু ক্রেতার তথ্য বদলাতে পারেন।
+                {% endif %}
+              </p>
+              <div class="sm-field sale-entry-field sale-paid-field">
+                {{ form.payment_add.label_tag }}
+                {% if form.payment_add.errors %}<ul class="errorlist">{% for e in form.payment_add.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                {{ form.payment_add }}
+                {% if form.payment_add.help_text %}<span class="helptext">{{ form.payment_add.help_text }}</span>{% endif %}
+              </div>
+              <div class="sm-field sale-entry-field">
+                {{ form.payment_at.label_tag }}
+                {% if form.payment_at.errors %}<ul class="errorlist">{% for e in form.payment_at.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                {{ form.payment_at }}
+                {% if form.payment_at.help_text %}<span class="helptext">{{ form.payment_at.help_text }}</span>{% endif %}
+              </div>
+              <div class="sm-field sale-entry-field">
+                {{ form.payment_note.label_tag }}
+                {% if form.payment_note.errors %}<ul class="errorlist">{% for e in form.payment_note.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                {{ form.payment_note }}
+                {% if form.payment_note.help_text %}<span class="helptext">{{ form.payment_note.help_text }}</span>{% endif %}
+              </div>
+            </div>
+
+            <div class="sale-form-actions">
+              {% if form.errors %}
+              <div class="sale-submit-error-banner" role="alert" id="sale-edit-submit-errors">
+                <p class="sale-submit-error-banner__title">আপডেট করা যায়নি — নিচের সমস্যাগুলো ঠিক করুন</p>
+                <ul class="sale-submit-error-banner__list">
+                  {% for field in form %}
+                    {% if field.errors %}
+                      {% for err in field.errors %}
+                        <li><span class="sale-submit-error-banner__field">{{ field.label }}</span>: {{ err }}</li>
+                      {% endfor %}
+                    {% endif %}
+                  {% endfor %}
+                  {% for err in form.non_field_errors %}
+                    <li>{{ err }}</li>
+                  {% endfor %}
+                </ul>
+              </div>
+              {% endif %}
+              <button type="submit" name="update_sale" value="1" class="sm-submit">আপডেট করুন</button>
+              <a href="{% url 'stock:daily_sell' %}{% if sales_page.number > 1 %}?page={{ sales_page.number }}{% endif %}" class="sm-btn-cancel">বাতিল</a>
+            </div>
+          </form>
+
+        {% else %}
+          <div class="sm-card-header">
+            <span class="sm-badge sale-badge-customer">ক্রেতা</span>
+            <h2 id="sell-form-title">নতুন বিক্রয়</h2>
+          </div>
+
+          {% if not has_stock %}
+            <p class="sm-stock-warn">কোনো পণ্যের স্টক নেই। প্রথমে <a href="{% url 'stock:dashboard' %}">স্টক পেজ</a> থেকে পণ্য যোগ করুন।</p>
+          {% endif %}
+
+          {{ sale_meta|json_script:"sale-meta-data" }}
+
+            <div class="sale-section sale-section--customer sale-customer-above-form">
+            <h3 class="sale-section-title">ক্রেতার তথ্য</h3>
+            <p class="sale-section-sub">নাম, ফোন ও ঠিকানা এখানে লিখুন। নিচের ফর্মে এক বা একাধিক পণ্য লাইন ও টাকার হিসাব দিন।</p>
+            <div class="sm-field sale-entry-field">
+              {{ order_form.customer_name.label_tag }}
+              {% if order_form.customer_name.errors %}<ul class="errorlist">{% for e in order_form.customer_name.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+              {{ order_form.customer_name }}
+            </div>
+            <div class="sm-field sale-entry-field">
+              {{ order_form.phone.label_tag }}
+              {% if order_form.phone.errors %}<ul class="errorlist">{% for e in order_form.phone.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+              {{ order_form.phone }}
+            </div>
+            <div class="sm-field sale-entry-field">
+              {{ order_form.address.label_tag }}
+              {% if order_form.address.errors %}<ul class="errorlist">{% for e in order_form.address.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+              {{ order_form.address }}
+            </div>
+          </div>
+
+          <form method="post" novalidate action="{% url 'stock:daily_sell' %}" id="daily-sell-form" class="sale-entry-form sale-entry-form--below-customer">
+            {% csrf_token %}
+            <input type="hidden" name="_sales_page" value="{{ sales_page.number }}">
+            {{ line_formset.management_form }}
+
+            <div class="sale-section sale-section--product">
+              <h3 class="sale-section-title">পণ্য ও পরিমাণ</h3>
+              <p class="sale-section-sub sale-section-sub--tight">প্রতিটি সারিতে একটি পণ্য ও সংখ্যা দিন। একই অর্ডারে আরও পণ্য লাগলে নিচের বাটন চাপুন।</p>
+              <div id="sale-lines-wrap" class="sale-lines-wrap">
+                {% for lf in line_formset %}
+                <div class="sale-line-row" data-sale-line>
+                  <div class="sale-line-grid">
+                    <div class="sm-field sale-entry-field sale-line-field-product">
+                      {{ lf.product.label_tag }}
+                      {% if lf.product.errors %}<ul class="errorlist">{% for e in lf.product.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                      {{ lf.product }}
+                      <p class="sale-unit-price-hint sale-line-unit-hint" aria-live="polite" hidden>
+                        <span class="sale-unit-price-label">একক দাম</span>
+                        <strong class="sale-unit-price-value sale-line-unit-value">—</strong>
+                        <span class="sale-unit-price-currency" aria-hidden="true">৳</span>
+                      </p>
+                    </div>
+                    <div class="sm-field sale-entry-field sale-line-field-qty">
+                      {{ lf.quantity.label_tag }}
+                      {% if lf.quantity.errors %}<ul class="errorlist">{% for e in lf.quantity.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                      {{ lf.quantity }}
+                    </div>
+                  </div>
+                  {% if lf.non_field_errors %}
+                  <ul class="errorlist">{% for e in lf.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                  {% endif %}
+                </div>
+                {% endfor %}
+              </div>
+              <div class="sale-lines-toolbar">
+                <button type="button" class="sale-add-line-btn" id="add-sale-line-btn">＋ আরও পণ্য লাইন যোগ করুন</button>
+              </div>
+              <p class="sm-live-error" id="stock-agg-error" role="alert" hidden></p>
+            </div>
+
+            <div class="sale-section sale-section--payment sale-section--money">
+              <h3 class="sale-section-title sale-section-title--money">টাকার হিসাব</h3>
+              <div class="sm-field sale-entry-field sale-paid-field">
+                {{ order_form.amount_paid.label_tag }}
+                {% if order_form.amount_paid.errors %}<ul class="errorlist">{% for e in order_form.amount_paid.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+                {{ order_form.amount_paid }}
+                {% if order_form.amount_paid.help_text %}<span class="helptext">{{ order_form.amount_paid.help_text }}</span>{% endif %}
+                <p class="sm-live-error" id="paid-live-error" role="alert" hidden></p>
+              </div>
+            </div>
+
+            <div class="sm-sale-preview" id="sale-preview" aria-live="polite">
+              <div id="preview-text" class="sale-preview-inner">পণ্য ও সংখ্যা নির্বাচন করলে নিচে মোট, পরিশোধ ও বাকি দেখাবে।</div>
+            </div>
+
+            {% if order_form.errors or line_formset.total_error_count %}
+            <div class="sale-submit-error-banner" role="alert" id="sale-new-submit-errors">
+              <p class="sale-submit-error-banner__title">সংরক্ষণ করা যায়নি — নিচের সমস্যাগুলো ঠিক করুন</p>
+              <ul class="sale-submit-error-banner__list">
+                {% for field in order_form %}
+                  {% if field.errors %}
+                    {% for err in field.errors %}
+                      <li><span class="sale-submit-error-banner__field">{{ field.label }}</span>: {{ err }}</li>
+                    {% endfor %}
+                  {% endif %}
+                {% endfor %}
+                {% for err in order_form.non_field_errors %}
+                  <li>{{ err }}</li>
+                {% endfor %}
+                {% for err in line_formset.non_field_errors %}
+                  <li>{{ err }}</li>
+                {% endfor %}
+                {% for lf in line_formset %}
+                  {% for err in lf.non_field_errors %}
+                    <li><span class="sale-submit-error-banner__field">সারি {{ forloop.parentloop.counter }}</span>: {{ err }}</li>
+                  {% endfor %}
+                  {% for field in lf %}
+                    {% if field.errors %}
+                      {% for err in field.errors %}
+                        <li><span class="sale-submit-error-banner__field">সারি {{ forloop.parentloop.counter }} · {{ field.label }}</span>: {{ err }}</li>
+                      {% endfor %}
+                    {% endif %}
+                  {% endfor %}
+                {% endfor %}
+              </ul>
+            </div>
+            {% endif %}
+
+            <button type="submit" class="sm-submit sale-submit-btn" {% if not has_stock %}disabled{% endif %}>বিক্রয় সংরক্ষণ করুন</button>
+          </form>
+        {% endif %}
+      </section>
+
+      <section class="sm-stock-panel sale-history-panel">
+        <h2 id="recent-sales-title">সাম্প্রতিক বিক্রয়</h2>
+        <div class="sm-table-scroll" role="region" aria-label="সাম্প্রতিক বিক্রয়">
+          <div class="sm-table-wrap">
+            {% if sales_page.paginator.count %}
+              <p class="sm-pagination-summary">
+                মোট {{ sales_page.paginator.count }} টি বিক্রয় · পৃষ্ঠা {{ sales_page.number }} / {{ sales_page.paginator.num_pages }}
+              </p>
+              <table class="sm-table sm-table--sales">
+                <thead>
+                  <tr>
+                    <th scope="col">সময়</th>
+                    <th scope="col">ক্রেতা</th>
+                    <th scope="col">ফোন</th>
+                    <th scope="col">পণ্য</th>
+                    <th scope="col" class="sm-num">মোট ইউনিট</th>
+                    <th scope="col" class="sm-num">মোট</th>
+                    <th scope="col" class="sm-num sm-num--money">পরিশোধ</th>
+                    <th scope="col" class="sm-num sm-num--money">বাকি</th>
+                    <th scope="col" class="sm-col-actions">কাজ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for s in sales_page %}
+                    <tr>
+                      <td class="sm-muted-cell sale-td-time">{{ s.sold_at|date:"d M Y, H:i" }}</td>
+                      <td>{{ s.customer_name }}</td>
+                      <td>{{ s.phone }}</td>
+                      <td class="sale-td-products">{% for ln in s.lines.all %}{{ ln.product.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td>
+                      <td class="sm-num">{{ s.total_line_units }}</td>
+                      <td class="sm-num">{{ s.line_total|floatformat:0 }}</td>
+                      <td class="sm-num sm-num--money">{{ s.amount_paid|floatformat:0 }}</td>
+                      <td class="sm-num sm-num--money">{{ s.amount_due|floatformat:0 }}</td>
+                      <td class="sm-actions sm-actions--dual">
+                        <a href="{% url 'stock:sale_print' s.pk %}?autoprint=1" target="_blank" rel="noopener noreferrer" class="sm-btn-print">প্রিন্ট</a>
+                        <a href="{% url 'stock:daily_sell' %}?sale_edit={{ s.pk }}{% if sales_page.number > 1 %}&page={{ sales_page.number }}{% endif %}" class="sm-btn-edit">সম্পাদনা</a>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+
+              {% if sales_page.paginator.num_pages > 1 %}
+                <nav class="sm-pagination" aria-label="বিক্রয় পৃষ্ঠা">
+                  {% if sales_page.has_previous %}
+                    <a class="sm-page-link" href="{% qs_page sales_page.previous_page_number %}">← পূর্ববর্তী</a>
+                  {% endif %}
+                  <span class="sm-page-info">{{ sales_page.number }} / {{ sales_page.paginator.num_pages }}</span>
+                  {% if sales_page.has_next %}
+                    <a class="sm-page-link" href="{% qs_page sales_page.next_page_number %}">পরবর্তী →</a>
+                  {% endif %}
+                </nav>
+              {% endif %}
+            {% else %}
+              <p class="sm-empty">এখনও বিক্রয় রেকর্ড নেই।</p>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+{% if not editing_sale %}
+  <script>
+(function () {
+  var metaEl = document.getElementById('sale-meta-data');
+  if (!metaEl) return;
+  var SALE_META = JSON.parse(metaEl.textContent);
+  var paidEl = document.getElementById('id_amount_paid');
+  var previewEl = document.getElementById('preview-text');
+  var formEl = document.getElementById('daily-sell-form');
+  var paidErrEl = document.getElementById('paid-live-error');
+  var stockAggEl = document.getElementById('stock-agg-error');
+  var linesWrap = document.getElementById('sale-lines-wrap');
+  var addBtn = document.getElementById('add-sale-line-btn');
+
+  function fmt(n) {
+    var x = Math.round(Number(n));
+    if (!isFinite(x)) return '0';
+    return x.toLocaleString('bn-BD');
+  }
+
+  function forEachLineRow(fn) {
+    if (!linesWrap) return;
+    linesWrap.querySelectorAll('[data-sale-line]').forEach(fn);
+  }
+
+  function aggregateQtyByProduct() {
+    var map = {};
+    forEachLineRow(function (row) {
+      var sel = row.querySelector('.sale-line-product');
+      var qtyIn = row.querySelector('.sale-line-qty');
+      if (!sel || !qtyIn) return;
+      var pid = sel.value;
+      var q = parseInt(qtyIn.value, 10);
+      if (!pid || !q || q < 1 || isNaN(q)) return;
+      map[pid] = (map[pid] || 0) + q;
+    });
+    return map;
+  }
+
+  function billTotalBn() {
+    var sum = 0;
+    var any = false;
+    forEachLineRow(function (row) {
+      var sel = row.querySelector('.sale-line-product');
+      var qtyIn = row.querySelector('.sale-line-qty');
+      if (!sel || !qtyIn) return;
+      var pid = sel.value;
+      var rowM = SALE_META[pid];
+      var qty = parseInt(qtyIn.value, 10);
+      if (!rowM || !qty || qty < 1 || isNaN(qty)) return;
+      any = true;
+      sum += Math.round(parseFloat(rowM.price) * qty);
+    });
+    return any ? sum : null;
+  }
+
+  function syncRowUnitHint(row) {
+    var sel = row.querySelector('.sale-line-product');
+    var hint = row.querySelector('.sale-line-unit-hint');
+    var valEl = row.querySelector('.sale-line-unit-value');
+    if (!sel || !hint || !valEl) return;
+    var meta = SALE_META[sel.value];
+    if (!meta) {
+      hint.hidden = true;
+      return;
+    }
+    hint.hidden = false;
+    valEl.textContent = fmt(Math.round(parseFloat(meta.price)));
+  }
+
+  function syncStockAggMessage() {
+    if (!stockAggEl) return;
+    stockAggEl.hidden = true;
+    stockAggEl.textContent = '';
+    var agg = aggregateQtyByProduct();
+    var pid;
+    for (pid in agg) {
+      if (!Object.prototype.hasOwnProperty.call(agg, pid)) continue;
+      var meta = SALE_META[pid];
+      var need = agg[pid];
+      if (!meta) continue;
+      if (need > Number(meta.stock)) {
+        stockAggEl.textContent =
+          'এই অর্ডারে মোট ' +
+          need +
+          ' টি চাই; «স্টক তালিকায়» এই পণ্যের স্টক ' +
+          meta.stock +
+          ' টি। সংখ্যা বা লাইন ঠিক করুন।';
+        stockAggEl.hidden = false;
+        return;
+      }
+    }
+  }
+
+  function syncQtyMaxForRow(row) {
+    var sel = row.querySelector('.sale-line-product');
+    var qtyIn = row.querySelector('.sale-line-qty');
+    if (!sel || !qtyIn) return;
+    var pid = sel.value;
+    var meta = SALE_META[pid];
+    if (!meta) {
+      qtyIn.removeAttribute('max');
+      return;
+    }
+    var agg = aggregateQtyByProduct();
+    var rawQ = parseInt(qtyIn.value, 10);
+    var cur = isNaN(rawQ) ? 0 : rawQ;
+    var other = (agg[pid] || 0) - cur;
+    if (other < 0) other = 0;
+    var cap = Number(meta.stock) - other;
+    if (cap < 0) cap = 0;
+    qtyIn.setAttribute('max', cap);
+  }
+
+  function syncPaidLimit() {
+    if (!paidEl) return;
+    var line = billTotalBn();
+    if (line === null) {
+      paidEl.removeAttribute('max');
+      if (paidErrEl) {
+        paidErrEl.hidden = true;
+        paidErrEl.textContent = '';
+      }
+      return;
+    }
+    paidEl.setAttribute('max', line);
+    var paid = parseFloat(String(paidEl.value).replace(',', '.'));
+    if (isNaN(paid)) paid = 0;
+    if (paid > line) {
+      if (paidErrEl) {
+        paidErrEl.textContent =
+          'মোট বিল ' + fmt(line) + ' টাকা। পরিশোধ মোটের চেয়ে বেশি হতে পারে না।';
+        paidErrEl.hidden = false;
+      }
+    } else if (paidErrEl) {
+      paidErrEl.hidden = true;
+      paidErrEl.textContent = '';
+    }
+  }
+
+  function updatePreview() {
+    if (!previewEl) return;
+    var paid = paidEl ? parseFloat(String(paidEl.value).replace(',', '.')) : 0;
+    if (isNaN(paid)) paid = 0;
+    var line = billTotalBn();
+    if (line === null) {
+      previewEl.textContent =
+        'পণ্য ও সংখ্যা নির্বাচন করলে নিচে মোট, পরিশোধ ও বাকি দেখাবে।';
+      return;
+    }
+    var due = Math.max(0, line - Math.round(paid));
+    previewEl.innerHTML =
+      '<div class="sale-preview-rows">' +
+      '<div class="sale-preview-row sale-preview-row--total">মোট বিল: <strong class="sale-money-total">' +
+      fmt(line) +
+      '</strong> <span class="sale-money-unit">টাকা</span></div>' +
+      '<div class="sale-preview-row sale-preview-row--paid">পরিশোধ: <strong class="sale-money-paid">' +
+      fmt(paid) +
+      '</strong> <span class="sale-money-unit">টাকা</span></div>' +
+      '<div class="sale-preview-row sale-preview-row--due">বাকি: <strong class="sale-money-due">' +
+      fmt(due) +
+      '</strong> <span class="sale-money-unit">টাকা</span></div>' +
+      '</div>';
+  }
+
+  function refreshLineUi() {
+    forEachLineRow(function (row) {
+      syncRowUnitHint(row);
+      syncQtyMaxForRow(row);
+    });
+    syncStockAggMessage();
+    syncPaidLimit();
+    updatePreview();
+  }
+
+  if (linesWrap) {
+    linesWrap.addEventListener('change', function (e) {
+      if (e.target && e.target.classList && e.target.classList.contains('sale-line-product')) {
+        refreshLineUi();
+      }
+    });
+    linesWrap.addEventListener('input', function (e) {
+      if (
+        e.target &&
+        e.target.classList &&
+        e.target.classList.contains('sale-line-qty')
+      ) {
+        refreshLineUi();
+      }
+    });
+  }
+
+  if (paidEl) {
+    paidEl.addEventListener('input', function () {
+      syncPaidLimit();
+      updatePreview();
+    });
+  }
+
+  if (addBtn && linesWrap && formEl) {
+    addBtn.addEventListener('click', function () {
+      var totalEl = document.getElementById('id_lines-TOTAL_FORMS');
+      var maxEl = document.getElementById('id_lines-MAX_NUM_FORMS');
+      if (!totalEl) return;
+      var newIdx = parseInt(totalEl.value, 10);
+      if (maxEl) {
+        var maxN = parseInt(maxEl.value, 10);
+        if (isFinite(maxN) && newIdx >= maxN) return;
+      }
+      var rows = linesWrap.querySelectorAll('[data-sale-line]');
+      var last = rows[rows.length - 1];
+      if (!last) return;
+      var firstInp = last.querySelector('[name^="lines-"]');
+      if (!firstInp) return;
+      var m = /^lines-(\d+)-/.exec(firstInp.getAttribute('name') || '');
+      var lastIdx = m ? parseInt(m[1], 10) : 0;
+      var wrap = document.createElement('div');
+      wrap.innerHTML = last.outerHTML.replace(
+        new RegExp('lines-' + lastIdx + '-', 'g'),
+        'lines-' + newIdx + '-'
+      );
+      var newRow = wrap.firstElementChild;
+      if (!newRow) return;
+      newRow.querySelectorAll('input, select, textarea').forEach(function (el) {
+        if (el.type === 'hidden') return;
+        el.value = '';
+        if (el.tagName === 'SELECT') el.selectedIndex = 0;
+      });
+      newRow.querySelectorAll('.sale-line-unit-hint').forEach(function (h) {
+        h.hidden = true;
+      });
+      linesWrap.appendChild(newRow);
+      totalEl.value = String(newIdx + 1);
+      refreshLineUi();
+    });
+  }
+
+  refreshLineUi();
+
+  if (formEl) {
+    formEl.addEventListener('submit', function (e) {
+      syncStockAggMessage();
+      var agg = aggregateQtyByProduct();
+      var pid;
+      for (pid in agg) {
+        if (!Object.prototype.hasOwnProperty.call(agg, pid)) continue;
+        var meta = SALE_META[pid];
+        if (meta && agg[pid] > Number(meta.stock)) {
+          e.preventDefault();
+          if (stockAggEl) {
+            stockAggEl.textContent =
+              'স্টকের চেয়ে বেশি পরিমাণ। প্রতিটি পণ্যের মোট সংখ্যা ঠিক করুন।';
+            stockAggEl.hidden = false;
+            stockAggEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          return;
+        }
+      }
+      var line = billTotalBn();
+      var paid = paidEl ? parseFloat(String(paidEl.value).replace(',', '.')) : 0;
+      if (isNaN(paid)) paid = 0;
+      if (line !== null && paid > line && paidEl) {
+        e.preventDefault();
+        if (paidErrEl) {
+          paidErrEl.textContent =
+            'মোট বিল ' + fmt(line) + ' টাকা। পরিশোধ মোটের চেয়ে বেশি দেওয়া যাবে না।';
+          paidErrEl.hidden = false;
+          paidErrEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        paidEl.focus();
+      }
+    });
+  }
+})();
+  </script>
+{% endif %}
+{% if editing_sale %}
+  {% if form.errors %}
+  <script>
+(function () {
+  var el = document.getElementById('sale-edit-submit-errors');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+})();
+  </script>
+  {% endif %}
+  <script>
+(function () {
+  var cb = document.getElementById('sale-edit-paylog-toggle');
+  var wrap = document.getElementById('sale-payment-log-edit-wrap');
+  if (!cb || !wrap) return;
+  function sync() {
+    wrap.classList.toggle('sale-payment-log--editable', cb.checked);
+  }
+  cb.addEventListener('change', sync);
+  sync();
+})();
+  </script>
+{% endif %}
+{% if not editing_sale %}
+  {% if order_form.errors or line_formset.total_error_count %}
+  <script>
+(function () {
+  var el = document.getElementById('sale-new-submit-errors');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+})();
+  </script>
+  {% endif %}
+{% endif %}
+</body>
+</html>

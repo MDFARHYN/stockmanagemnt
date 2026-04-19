@@ -1,0 +1,136 @@
+{% load static %}
+{% load stock_tags %}
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>স্টক — Daily Stock</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=Noto+Sans+Bengali:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'stock/css/dashboard.css' %}">
+</head>
+<body class="sm-page">
+  <div class="sm-wrap">
+    <header class="sm-top">
+      <div class="sm-top-intro">
+        <h1>স্টক ম্যানেজমেন্ট</h1>
+        <p>পণ্য যোগ করুন এবং বর্তমান স্টক ও দাম এক নজরে দেখুন।</p>
+      </div>
+      <nav class="sm-nav" aria-label="পেজ নেভিগেশন">
+        <a href="{% url 'user_authentication:my_account' %}">আমার অ্যাকাউন্ট</a>
+        <a href="{% url 'user_authentication:login' %}">হোম</a>
+      </nav>
+    </header>
+
+    {% if messages %}
+      <div class="sm-messages">
+        {% for message in messages %}
+          <div class="sm-msg{% if message.tags %} {{ message.tags }}{% endif %}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="sm-main-layout">
+      <aside class="sm-card sm-card--form" aria-labelledby="product-form-title">
+        <div class="sm-card-header">
+          {% if editing_product %}
+            <span class="sm-badge sm-badge--edit">সম্পাদনা</span>
+            <h2 id="product-form-title">পণ্য সম্পাদনা</h2>
+          {% else %}
+            <span class="sm-badge">পণ্য</span>
+            <h2 id="product-form-title">নতুন পণ্য যোগ করুন</h2>
+          {% endif %}
+        </div>
+        <form method="post" novalidate action="{% url 'stock:dashboard' %}">
+          {% csrf_token %}
+          {% if editing_product %}
+            <input type="hidden" name="product_id" value="{{ editing_product.pk }}">
+          {% endif %}
+          {% for field in product_form %}
+            <div class="sm-field">
+              {{ field.label_tag }}
+              {% if field.errors %}<ul class="errorlist">{% for e in field.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+              {{ field }}
+              {% if field.help_text %}<span class="helptext">{{ field.help_text }}</span>{% endif %}
+            </div>
+          {% endfor %}
+          <div class="sm-form-actions{% if editing_product %} sm-form-actions--dual{% endif %}">
+            {% if editing_product %}
+              <button type="submit" name="update_product" value="1" class="sm-submit">আপডেট করুন</button>
+              <a href="{% url 'stock:dashboard' %}" class="sm-btn-cancel">বাতিল</a>
+            {% else %}
+              <button type="submit" name="add_product" value="1" class="sm-submit">পণ্য সংরক্ষণ করুন</button>
+            {% endif %}
+          </div>
+        </form>
+      </aside>
+
+      <section class="sm-stock-panel" aria-labelledby="stock-list-title">
+        <h2 id="stock-list-title">পণ্য ও স্টক</h2>
+        <div class="sm-table-scroll" role="region" aria-label="পণ্য তালিকা, অনুভূমিক স্ক্রল">
+          <div class="sm-table-wrap">
+            {% if products_page.paginator.count %}
+              <p class="sm-pagination-summary">
+                মোট {{ products_page.paginator.count }} টি পণ্য · পৃষ্ঠা {{ products_page.number }} / {{ products_page.paginator.num_pages }}
+              </p>
+              <table class="sm-table">
+                <thead>
+                  <tr>
+                    <th scope="col">পণ্য</th>
+                    <th scope="col">মান</th>
+                    <th scope="col" class="sm-num">একক দাম</th>
+                    <th scope="col" class="sm-num">স্টক</th>
+                    <th scope="col" class="sm-num sm-col-total">মোট মূল্য</th>
+                    <th scope="col" class="sm-col-actions">কাজ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for p in products_page %}
+                    <tr class="{% if p.stock_quantity < 5 %}sm-stock-low{% endif %}">
+                      <td data-label="পণ্য"><strong>{{ p.name }}</strong></td>
+                      <td data-label="মান">{{ p.quality }}</td>
+                      <td class="sm-num" data-label="একক দাম">{{ p.price|floatformat:0 }} ৳</td>
+                      <td class="sm-num sm-stock-cell" data-label="স্টক">{{ p.stock_quantity }}</td>
+                      <td class="sm-num sm-line-value" data-label="মোট মূল্য">{{ p.line_value|floatformat:0 }} ৳</td>
+                      <td class="sm-actions" data-label="কাজ">
+                        <div class="sm-action-btns">
+                          <a href="{% url 'stock:dashboard' %}?page={{ products_page.number }}&edit={{ p.pk }}" class="sm-btn-edit">সম্পাদনা</a>
+                          <form method="post" class="sm-delete-form" action="{% url 'stock:dashboard' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="product_id" value="{{ p.pk }}">
+                            <button type="submit" name="delete_product" value="1" class="sm-btn-delete" onclick="return confirm('এই পণ্য মুছে ফেলতে চান?');">মুছুন</button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              <div class="sm-stock-total-bar">
+                <span class="sm-stock-total-label">সর্বমোট মজুদ মূল্য <span class="sm-stock-total-hint">(একক দাম × স্টক)</span></span>
+                <strong class="sm-stock-total-value">{{ stock_total_value|floatformat:0 }} ৳</strong>
+              </div>
+
+              {% if products_page.paginator.num_pages > 1 %}
+                <nav class="sm-pagination" aria-label="পণ্য পৃষ্ঠা">
+                  {% if products_page.has_previous %}
+                    <a class="sm-page-link" href="{% qs_page products_page.previous_page_number %}">← পূর্ববর্তী</a>
+                  {% endif %}
+                  <span class="sm-page-info">{{ products_page.number }} / {{ products_page.paginator.num_pages }}</span>
+                  {% if products_page.has_next %}
+                    <a class="sm-page-link" href="{% qs_page products_page.next_page_number %}">পরবর্তী →</a>
+                  {% endif %}
+                </nav>
+              {% endif %}
+            {% else %}
+              <p class="sm-empty">এখনও কোনো পণ্য যোগ করা হয়নি। বামের ফর্ম থেকে (মোবাইলে উপরের ফর্ম) পণ্য যোগ করুন।</p>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</body>
+</html>

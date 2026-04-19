@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>বিক্রয় রসিদ — {{ sale.customer_name }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 1.25rem 1.5rem 2rem;
+      font-family: 'Noto Sans Bengali', system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.55;
+      color: #0f172a;
+      background: #fff;
+    }
+    .print-toolbar {
+      margin-bottom: 1.25rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      align-items: center;
+    }
+    .print-toolbar button {
+      padding: 0.55rem 1rem;
+      font-family: inherit;
+      font-weight: 700;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      background: #0d9488;
+      color: #fff;
+    }
+    .print-toolbar a {
+      color: #475569;
+      font-size: 0.9rem;
+    }
+    .slip {
+      max-width: 32rem;
+      margin: 0 auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 1.25rem 1.35rem;
+    }
+    .slip h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.35rem;
+      text-align: center;
+      font-weight: 700;
+    }
+    .slip-sub {
+      text-align: center;
+      font-size: 0.88rem;
+      color: #64748b;
+      margin-bottom: 1.1rem;
+    }
+    .slip-section-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #64748b;
+      margin: 1rem 0 0.45rem;
+      border-bottom: 1px solid #f1f5f9;
+      padding-bottom: 0.25rem;
+    }
+    .slip-section-title:first-of-type { margin-top: 0; }
+    .slip-dl {
+      margin: 0;
+      display: grid;
+      gap: 0.35rem 0.75rem;
+    }
+    .slip-dl dt {
+      font-weight: 650;
+      color: #475569;
+      font-size: 0.82rem;
+    }
+    .slip-dl dd {
+      margin: 0 0 0.5rem;
+      font-size: 1rem;
+    }
+    .slip-address {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .slip-order {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.35rem;
+      font-size: 0.95rem;
+    }
+    .slip-order th,
+    .slip-order td {
+      padding: 0.45rem 0.35rem;
+      text-align: left;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .slip-order th {
+      font-size: 0.78rem;
+      color: #64748b;
+      font-weight: 650;
+    }
+    .slip-order .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .slip-totals {
+      margin-top: 0.85rem;
+      padding-top: 0.65rem;
+      border-top: 2px dashed #cbd5e1;
+    }
+    .slip-totals-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.25rem 0;
+      font-size: 0.98rem;
+    }
+    .slip-totals-row strong { font-weight: 700; }
+    .slip-totals-row.due strong { color: #c2410c; }
+    .slip-footer {
+      margin-top: 1.25rem;
+      font-size: 0.82rem;
+      color: #94a3b8;
+      text-align: center;
+    }
+    @media print {
+      body { padding: 0.5rem; }
+      .print-toolbar { display: none !important; }
+      .slip { border: none; max-width: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-toolbar no-print">
+    <button type="button" id="sale-print-btn">প্রিন্ট করুন</button>
+    <a href="javascript:history.back()">← ফিরে যান</a>
+  </div>
+
+  <article class="slip">
+    <h1>বিক্রয় রসিদ</h1>
+    <p class="slip-sub">বিক্রয়ের সময়: {{ sale.sold_at|date:"d M Y, H:i" }}</p>
+
+    <div class="slip-section-title">ক্রেতার তথ্য</div>
+    <dl class="slip-dl">
+      <dt>নাম</dt>
+      <dd>{{ sale.customer_name }}</dd>
+      <dt>মোবাইল</dt>
+      <dd>{{ sale.phone }}</dd>
+      <dt>ঠিকানা</dt>
+      <dd class="slip-address">{% if sale.address %}{{ sale.address }}{% else %}—{% endif %}</dd>
+    </dl>
+
+    <div class="slip-section-title">অর্ডার</div>
+    <table class="slip-order">
+      <thead>
+        <tr>
+          <th scope="col">পণ্য</th>
+          <th scope="col" class="num">পরিমাণ</th>
+          <th scope="col" class="num">একক দাম (৳)</th>
+          <th scope="col" class="num">মোট (৳)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ln in sale.lines.all %}
+        <tr>
+          <td>{{ ln.product.name }}</td>
+          <td class="num">{{ ln.quantity }}</td>
+          <td class="num">{{ ln.unit_price|floatformat:0 }}</td>
+          <td class="num">{{ ln.line_total|floatformat:0 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="slip-totals">
+      <div class="slip-totals-row">
+        <span>মোট বিল</span>
+        <strong>{{ sale.line_total|floatformat:0 }} ৳</strong>
+      </div>
+      <div class="slip-totals-row">
+        <span>পরিশোধ</span>
+        <strong>{{ sale.amount_paid|floatformat:0 }} ৳</strong>
+      </div>
+      <div class="slip-totals-row due">
+        <span>বাকি</span>
+        <strong>{{ sale.amount_due|floatformat:0 }} ৳</strong>
+      </div>
+    </div>
+
+    <p class="slip-footer">Daily Stock — দৈনিক স্টক ম্যানেজমেন্ট</p>
+  </article>
+
+  <script>
+(function () {
+  var q = new URLSearchParams(window.location.search);
+  var btn = document.getElementById('sale-print-btn');
+  function doPrint() { window.print(); }
+  if (btn) btn.addEventListener('click', doPrint);
+  if (q.get('autoprint') === '1') {
+    window.addEventListener('load', function () { setTimeout(doPrint, 200); });
+  }
+})();
+  </script>
+</body>
+</html>

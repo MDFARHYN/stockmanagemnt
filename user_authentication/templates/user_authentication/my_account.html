@@ -1,0 +1,132 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>আমার অ্যাকাউন্ট — Daily Stock</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=Noto+Sans+Bengali:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'user_authentication/css/auth.css' %}">
+</head>
+<body class="auth-body">
+  <div class="auth-shell account-wide">
+    <div class="auth-panel account-panel">
+      <header class="account-header">
+        <div>
+          <h1><span style="font-family:'Noto Sans Bengali',sans-serif;">আমার অ্যাকাউন্ট</span></h1>
+          <p>দৈনিক স্টক ও হিসাবের জন্য আপনার প্রোফাইল।</p>
+        </div>
+      </header>
+
+      {% if messages %}
+      {# message.tags can be several words (e.g. "success safe") — use level for CSS #}
+      <div class="account-flash-list" role="region" aria-label="বিজ্ঞপ্তি">
+        {% for message in messages %}
+          <div class="account-flash {% if message.level == 25 %}account-flash--success{% elif message.level == 40 %}account-flash--error{% elif message.level == 30 %}account-flash--warning{% elif message.level == 20 %}account-flash--info{% else %}account-flash--neutral{% endif %}">
+            {% if message.level == 25 %}
+              <span class="account-flash-mark" aria-hidden="true">✓</span>
+            {% elif message.level == 40 %}
+              <span class="account-flash-mark" aria-hidden="true">!</span>
+            {% endif %}
+            <span class="account-flash-msg">{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <h2 id="hub-main-title" class="account-section-heading bn account-hub-main-title">স্টক ট্র্যাক ও দৈনিক কেনা–বেচার হিসাব</h2>
+
+      <div class="hub-grid" aria-labelledby="hub-main-title">
+        <a href="{% url 'stock:dashboard' %}" class="hub-card hub-card--stock hub-card--link">
+          <span class="hub-card-icon" aria-hidden="true">📦</span>
+          <h2>স্টক ম্যানেজমেন্ট</h2>
+          <p>পণ্যের তালিকা, স্টকের পরিমাণ, কম স্টক সতর্কতা ও মৌলিক তথ্য—সব এক সূত্রে দেখতে।</p>
+          <span class="hub-card-pill bn">খুলুন</span>
+        </a>
+        <a href="{% url 'stock:daily_sell' %}" class="hub-card hub-card--ledger hub-card--link">
+          <span class="hub-card-icon" aria-hidden="true">🧾</span>
+          <h2>দৈনিক হিসাব ও কেনা–বেচা</h2>
+          <p>দিনের বিক্রয় ও ক্রয়, নগদ জমা–খরচ, বাকি–আদায়—দোকানের দৈনিক খতিয়ান।</p>
+          <span class="hub-card-pill bn">খুলুন</span>
+        </a>
+      </div>
+
+      <hr class="account-divider">
+
+      <h2 class="account-section-heading bn" style="margin-bottom:0.85rem;">প্রোফাইল</h2>
+
+      <div class="account-card-grid">
+        <dl class="account-stat">
+          <dt>ব্যবহারকারীর নাম</dt>
+          <dd>{{ user.get_username }}</dd>
+        </dl>
+        <dl class="account-stat">
+          <dt>ইমেইল</dt>
+          <dd>{% if user.email %}{{ user.email }}{% else %}যোগ করা হয়নি{% endif %}</dd>
+        </dl>
+        <dl class="account-stat">
+          <dt>সদস্যতা শুরু</dt>
+          <dd>{{ user.date_joined|date:"d M Y, H:i" }}</dd>
+        </dl>
+        <dl class="account-stat">
+          <dt>শেষ লগ ইন</dt>
+          <dd>{% if user.last_login %}{{ user.last_login|date:"d M Y, H:i" }}{% else %}—{% endif %}</dd>
+        </dl>
+      </div>
+
+      <hr class="account-divider">
+
+      <h2 class="account-section-heading bn" style="margin-bottom:0.65rem;">পাসওয়ার্ড পরিবর্তন</h2>
+      <p class="account-password-intro">বর্তমান পাসওয়ার্ড দিন, তারপর নতুন পাসওয়ার্ড দুইবার একই লিখে সংরক্ষণ করুন।</p>
+
+      <form method="post" action="{% url 'user_authentication:my_account' %}" class="account-password-form" novalidate>
+        {% csrf_token %}
+        {% if password_form.non_field_errors %}
+          <div class="auth-errors account-password-errors" role="alert">
+            {% for err in password_form.non_field_errors %}<div>{{ err }}</div>{% endfor %}
+          </div>
+        {% endif %}
+
+        <div class="auth-field">
+          {{ password_form.old_password.label_tag }}
+          {% if password_form.old_password.errors %}
+            <div class="auth-errors" style="margin-bottom:0.5rem;padding:0.45rem 0.55rem;font-size:0.82rem;">{{ password_form.old_password.errors|striptags }}</div>
+          {% endif %}
+          {{ password_form.old_password }}
+        </div>
+
+        <div class="auth-field">
+          {{ password_form.new_password1.label_tag }}
+          {% if password_form.new_password1.errors %}
+            <div class="auth-errors" style="margin-bottom:0.5rem;padding:0.45rem 0.55rem;font-size:0.82rem;">{{ password_form.new_password1.errors|striptags }}</div>
+          {% endif %}
+          {{ password_form.new_password1 }}
+          {% if password_form.new_password1.help_text %}<span class="account-field-help">{{ password_form.new_password1.help_text }}</span>{% endif %}
+        </div>
+
+        <div class="auth-field">
+          {{ password_form.new_password2.label_tag }}
+          {% if password_form.new_password2.errors %}
+            <div class="auth-errors" style="margin-bottom:0.5rem;padding:0.45rem 0.55rem;font-size:0.82rem;">{{ password_form.new_password2.errors|striptags }}</div>
+          {% endif %}
+          {{ password_form.new_password2 }}
+        </div>
+
+        <button type="submit" name="change_password" value="1" class="auth-btn account-password-submit">পাসওয়ার্ড সংরক্ষণ</button>
+      </form>
+
+      <div class="account-actions">
+        <a class="btn-outline" href="{% url 'user_authentication:login' %}">হোম</a>
+        <form method="post" action="{% url 'user_authentication:logout' %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="btn-outline btn-danger-outline" style="cursor:pointer;font:inherit;">
+            লগ আউট
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

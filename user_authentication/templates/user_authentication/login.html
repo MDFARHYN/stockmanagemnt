@@ -1,0 +1,63 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>লগ ইন — Daily Stock</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=Noto+Sans+Bengali:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'user_authentication/css/auth.css' %}">
+</head>
+<body class="auth-body">
+  <div class="auth-shell">
+    <div class="auth-panel">
+      <header class="auth-brand">
+        <span class="auth-brand-badge">দোকান · Store</span>
+        <h1><span class="bn">দৈনিক স্টক</span> / Daily Stock</h1>
+        <p class="sub">বাংলাদেশি খুচরা ও পাইকারি দোকানের জন্য স্টক ও হিসাব—নিরাপদ লগ ইন।</p>
+      </header>
+
+      {% if form.non_field_errors %}
+        <div class="auth-errors" role="alert">
+          {% for err in form.non_field_errors %}
+            <div>{{ err }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <form method="post" action="{% url 'user_authentication:login' %}" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+
+        <div class="auth-field">
+          <label for="id_username">ব্যবহারকারীর নাম / Username</label>
+          {% if form.username.errors %}
+            <div class="auth-errors" style="margin-bottom:0.5rem;padding:0.45rem 0.55rem;font-size:0.82rem;">
+              {{ form.username.errors|striptags }}
+            </div>
+          {% endif %}
+          <input type="text" name="username" id="id_username" value="{{ form.username.value|default:'' }}" autocomplete="username" required autofocus>
+        </div>
+
+        <div class="auth-field">
+          <label for="id_password">পাসওয়ার্ড / Password</label>
+          {% if form.password.errors %}
+            <div class="auth-errors" style="margin-bottom:0.5rem;padding:0.45rem 0.55rem;font-size:0.82rem;">
+              {{ form.password.errors|striptags }}
+            </div>
+          {% endif %}
+          <input type="password" name="password" id="id_password" autocomplete="current-password" required>
+        </div>
+
+        <button type="submit" class="auth-btn">লগ ইন করুন</button>
+      </form>
+
+      <p class="auth-footer-note">
+        শুধু অনুমোদিত ব্যবহারকারী। প্রবেশ করে আপনি <span class="gold">নিরাপদ সেশন</span> ব্যবহার করছেন।
+      </p>
+    </div>
+  </div>
+</body>
+</html>
